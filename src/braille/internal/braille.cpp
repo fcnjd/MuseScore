@@ -22,6 +22,8 @@
 
 #include "braille.h"
 
+#include <algorithm>
+
 #include <QRegularExpression>
 
 #include "containers.h"
@@ -800,6 +802,15 @@ Braille::Braille(Score* s)
     }
 }
 
+// Alignment gaps of this many cells or more are filled with dot-3 "tracker"
+// cells instead of blank space, per Music Braille Code convention, so a
+// reader's fingers can track across a wide gap between aligned material
+// (e.g. corresponding bars of different staves, or a short final measure).
+static const int TRACKER_DOT_MIN_GAP = 7;
+
+static QString brailleAlignmentFiller(int gap);
+static void appendAlignmentFiller(BrailleEngravingItemList* list, int gap);
+
 bool Braille::write(QIODevice& device)
 {
     credits(device);
@@ -826,7 +837,7 @@ bool Braille::write(QIODevice& device)
             int measureNumberLen = measureNumber.size();
             line[0] += measureNumber;
             for (size_t i = 1; i < nrStaves; i++) {
-                line[i] += QString("").leftJustified(measureNumberLen);
+                line[i] += brailleAlignmentFiller(measureNumberLen);
             }
             currentLineLength += measureNumberLen;
         }
@@ -871,7 +882,7 @@ bool Braille::write(QIODevice& device)
 
         currentLineLength += currentMeasureMaxLength;
         for (size_t i = 0; i < nrStaves; ++i) {
-            line[i] += measureBraille[i].leftJustified(currentMeasureMaxLength);
+            line[i] += measureBraille[i] + brailleAlignmentFiller(currentMeasureMaxLength - measureBraille[i].size());
             measureBraille[i] = QString();
         }
 
@@ -907,6 +918,37 @@ bool Braille::write(QIODevice& device)
     return true;
 }
 
+static QString brailleAlignmentFiller(int gap)
+{
+    if (gap <= 0) {
+        return QString();
+    }
+    QChar fill = (gap >= TRACKER_DOT_MIN_GAP)
+                 ? QString::fromStdString(getBraillePattern("3")).at(0)
+                 : QChar(' ');
+    return QString(gap, fill);
+}
+
+static void appendAlignmentFiller(BrailleEngravingItemList* list, int gap)
+{
+    QString filler = brailleAlignmentFiller(gap);
+    if (filler.isEmpty()) {
+        return;
+    }
+    list->insert(MAX_LIVE_BRAILLE_LENGTH, BrailleEngravingItem(BEIType::TrackerDot, nullptr, filler));
+}
+
+void Braille::brailleMeasureStaff(Measure* measure, int staffCount, BrailleEngravingItemList* out)
+{
+    BrailleEngravingItemList measureLyrics;
+
+    brailleMeasureItems(out, measure, staffCount);
+    brailleMeasureLyrics(&measureLyrics, measure, staffCount);
+    if (!measureLyrics.isEmpty()) {
+        out->join(&measureLyrics, true, false);
+    }
+}
+
 void Braille::convertMeasureInto(Measure* measure, BrailleEngravingItemList* beis)
 {
     int nrStaves = static_cast<int>(m_score->staves().size());
@@ -916,17 +958,9 @@ void Braille::convertMeasureInto(Measure* measure, BrailleEngravingItemList* bei
     }
 
     for (int i = 0; i < nrStaves; ++i) {
-        BrailleEngravingItemList measureBraille;
-        BrailleEngravingItemList measureLyrics;
-
-        brailleMeasureItems(&measureBraille, measure, i);
-        //measureBraille.log();
-        beis->join(&measureBraille, true, false);
-
-        brailleMeasureLyrics(&measureLyrics, measure, i);
-        if (!measureLyrics.isEmpty()) {
-            beis->join(&measureLyrics, true, false);
-        }
+        BrailleEngravingItemList staffContent;
+        brailleMeasureStaff(measure, i, &staffContent);
+        beis->join(&staffContent, true, false);
     }
 }
 
@@ -954,6 +988,78 @@ bool Braille::convertMeasures(const std::vector<Measure*>& measures, BrailleEngr
         convertMeasureInto(measure, beis);
     }
 
+    return true;
+}
+
+bool Braille::convertMeasuresSectionBySection(const std::vector<Measure*>& measures, BrailleEngravingItemList* beis)
+{
+    if (measures.empty()) {
+        return false;
+    }
+
+    int nrStaves = static_cast<int>(m_score->staves().size());
+    std::vector<BrailleEngravingItemList> lines(nrStaves);
+    int currentLineLength = 0;
+    bool measureAboveMax = false;
+
+    resetOctaves();
+
+    auto flushLines = [&]() {
+        for (int i = 0; i < nrStaves; ++i) {
+            if (!lines[i].isEmpty()) {
+                beis->join(&lines[i], true, false);
+            }
+            lines[i].clear();
+        }
+        currentLineLength = 0;
+    };
+
+    for (int idx = 0; idx < static_cast<int>(measures.size()); ++idx) {
+        Measure* measure = measures[idx];
+        if (measure->hasMMRest() && m_score->style().styleB(Sid::createMultiMeasureRests)) {
+            measure = measure->mmRest();
+        }
+
+        std::vector<BrailleEngravingItemList> staffContent(nrStaves);
+        std::vector<int> staffLength(nrStaves, 0);
+        int currentMeasureMaxLength = 0;
+        for (int i = 0; i < nrStaves; ++i) {
+            brailleMeasureStaff(measure, i, &staffContent[i]);
+            staffLength[i] = staffContent[i].brailleStr().length();
+            currentMeasureMaxLength = std::max(currentMeasureMaxLength, staffLength[i]);
+        }
+
+        if (currentLineLength > 0 && !measureAboveMax
+            && currentLineLength + currentMeasureMaxLength > MAX_CHARS_PER_LINE) {
+            // This measure doesn't fit on the current line: flush what's
+            // there, reset the octave/clef/key context for the new line
+            // (3.2.1. Page 53. Music Braille Code 2015), and re-process
+            // this same measure from scratch under that fresh context -
+            // mirrors Braille::write()'s identical wrap-and-retry pattern.
+            flushLines();
+            resetOctaves();
+            --idx;
+            continue;
+        }
+
+        if (currentMeasureMaxLength >= (MAX_CHARS_PER_LINE - 4)) {
+            measureAboveMax = true;
+        }
+
+        currentLineLength += currentMeasureMaxLength;
+        for (int i = 0; i < nrStaves; ++i) {
+            lines[i].join(&staffContent[i], false, false);
+            appendAlignmentFiller(&lines[i], currentMeasureMaxLength - staffLength[i]);
+        }
+
+        if (measureAboveMax || measure->sectionBreak()) {
+            flushLines();
+            resetOctaves();
+            measureAboveMax = false;
+        }
+    }
+
+    flushLines();
     return true;
 }
 

@@ -44,6 +44,10 @@ public:
     muse::async::Notification barsToShowChanged() const override;
     BrailleBarsToShow barsToShow() const override;
     void setBarsToShow(const BrailleBarsToShow barsToShow) override;
+
+    muse::async::Notification barAlignmentChanged() const override;
+    BrailleBarAlignment barAlignment() const override;
+    void setBarAlignment(const BrailleBarAlignment barAlignment) override;
 };
 }
 

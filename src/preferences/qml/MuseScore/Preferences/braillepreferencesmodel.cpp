@@ -51,6 +51,10 @@ void BraillePreferencesModel::load()
     brailleConfiguration()->barsToShowChanged().onNotify(this, [this]() {
         emit barsToShowChanged(barsToShow());
     });
+
+    brailleConfiguration()->barAlignmentChanged().onNotify(this, [this]() {
+        emit barAlignmentChanged(barAlignment());
+    });
 }
 
 bool BraillePreferencesModel::braillePanelEnabled() const
@@ -71,6 +75,11 @@ int BraillePreferencesModel::intervalDirection() const
 int BraillePreferencesModel::barsToShow() const
 {
     return static_cast<int>(brailleConfiguration()->barsToShow());
+}
+
+int BraillePreferencesModel::barAlignment() const
+{
+    return static_cast<int>(brailleConfiguration()->barAlignment());
 }
 
 QStringList BraillePreferencesModel::brailleTables() const
@@ -116,6 +125,22 @@ QVariantList BraillePreferencesModel::barsToShowOptions() const
     };
 }
 
+QVariantList BraillePreferencesModel::barAlignmentOptions() const
+{
+    return QVariantList {
+        QVariantMap {
+            //: Braille panel: stack corresponding bars of different staves one under the other
+            { "text", muse::qtrc("preferences", "Bar-over-bar") },
+            { "value", static_cast<int>(BrailleBarAlignment::BarOverBar) },
+        },
+        QVariantMap {
+            //: Braille panel: run consecutive bars of a staff together on one continuous line
+            { "text", muse::qtrc("preferences", "Section-by-section") },
+            { "value", static_cast<int>(BrailleBarAlignment::SectionBySection) },
+        },
+    };
+}
+
 void BraillePreferencesModel::setBraillePanelEnabled(bool value)
 {
     if (value == braillePanelEnabled()) {
@@ -154,4 +179,14 @@ void BraillePreferencesModel::setBarsToShow(int value)
 
     brailleConfiguration()->setBarsToShow(static_cast<BrailleBarsToShow>(value));
     emit barsToShowChanged(value);
+}
+
+void BraillePreferencesModel::setBarAlignment(int value)
+{
+    if (value == barAlignment()) {
+        return;
+    }
+
+    brailleConfiguration()->setBarAlignment(static_cast<BrailleBarAlignment>(value));
+    emit barAlignmentChanged(value);
 }

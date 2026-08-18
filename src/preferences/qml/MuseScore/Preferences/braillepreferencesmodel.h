@@ -40,6 +40,7 @@ class BraillePreferencesModel : public QObject, public muse::Contextable, public
     Q_PROPERTY(QString brailleTable READ brailleTable WRITE setBrailleTable NOTIFY brailleTableChanged)
     Q_PROPERTY(int intervalDirection READ intervalDirection WRITE setIntervalDirection NOTIFY intervalDirectionChanged)
     Q_PROPERTY(int barsToShow READ barsToShow WRITE setBarsToShow NOTIFY barsToShowChanged)
+    Q_PROPERTY(int barAlignment READ barAlignment WRITE setBarAlignment NOTIFY barAlignmentChanged)
 
     muse::GlobalInject<braille::IBrailleConfiguration> brailleConfiguration;
 
@@ -52,21 +53,25 @@ public:
     QString brailleTable() const;
     int intervalDirection() const;
     int barsToShow() const;
+    int barAlignment() const;
 
     Q_INVOKABLE QStringList brailleTables() const;
     Q_INVOKABLE QVariantList intervalDirections() const;
     Q_INVOKABLE QVariantList barsToShowOptions() const;
+    Q_INVOKABLE QVariantList barAlignmentOptions() const;
 
 public slots:
     void setBraillePanelEnabled(bool value);
     void setBrailleTable(QString table);
     void setIntervalDirection(int direction);
     void setBarsToShow(int value);
+    void setBarAlignment(int value);
 
 signals:
     void braillePanelEnabledChanged(bool value);
     void brailleTableChanged(QString value);
     void intervalDirectionChanged(int value);
     void barsToShowChanged(int value);
+    void barAlignmentChanged(int value);
 };
 }

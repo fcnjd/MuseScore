@@ -48,6 +48,12 @@ enum class BrailleBarsToShow
     Five = 5,
     Six = 6,
 };
+
+enum class BrailleBarAlignment
+{
+    BarOverBar = 0,
+    SectionBySection = 1,
+};
 }
 
 #endif // MU_BRAILLE_BRAILLETYPES_H

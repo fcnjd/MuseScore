@@ -34,6 +34,7 @@ static const Settings::Key BRAILLE_STATUS(module_name, "score/braille/status");
 static const Settings::Key BRAILLE_TABLE(module_name, "score/braille/table");
 static const Settings::Key BRAILLE_INTERVAL_DIRECTION(module_name, "score/braille/intervalDirection");
 static const Settings::Key BRAILLE_BARS_TO_SHOW(module_name, "score/braille/barsToShow");
+static const Settings::Key BRAILLE_BAR_ALIGNMENT(module_name, "score/braille/barAlignment");
 
 void BrailleConfiguration::init()
 {
@@ -52,6 +53,10 @@ void BrailleConfiguration::init()
     settings()->setDefaultValue(BRAILLE_BARS_TO_SHOW, Val(BrailleBarsToShow::One));
     settings()->valueChanged(BRAILLE_BARS_TO_SHOW).onReceive(this, [this](const Val&) {
         m_barsToShowChanged.notify();
+    });
+    settings()->setDefaultValue(BRAILLE_BAR_ALIGNMENT, Val(BrailleBarAlignment::BarOverBar));
+    settings()->valueChanged(BRAILLE_BAR_ALIGNMENT).onReceive(this, [this](const Val&) {
+        m_barAlignmentChanged.notify();
     });
 }
 
@@ -113,6 +118,21 @@ BrailleBarsToShow BrailleConfiguration::barsToShow() const
 void BrailleConfiguration::setBarsToShow(const BrailleBarsToShow barsToShow)
 {
     settings()->setSharedValue(BRAILLE_BARS_TO_SHOW, Val(barsToShow));
+}
+
+muse::async::Notification BrailleConfiguration::barAlignmentChanged() const
+{
+    return m_barAlignmentChanged;
+}
+
+BrailleBarAlignment BrailleConfiguration::barAlignment() const
+{
+    return settings()->value(BRAILLE_BAR_ALIGNMENT).toEnum<BrailleBarAlignment>();
+}
+
+void BrailleConfiguration::setBarAlignment(const BrailleBarAlignment barAlignment)
+{
+    settings()->setSharedValue(BRAILLE_BAR_ALIGNMENT, Val(barAlignment));
 }
 
 QStringList BrailleConfiguration::brailleTableList() const

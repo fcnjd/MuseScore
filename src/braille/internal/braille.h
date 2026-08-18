@@ -69,6 +69,7 @@ enum class BEIType
     LineIndicator,
     VoiceInAccord,
     EndOfLine,
+    TrackerDot,
 };
 
 class BrailleEngravingItem
@@ -167,6 +168,7 @@ public:
     bool write(QIODevice& device);
     bool convertMeasure(Measure* m, BrailleEngravingItemList* beis);
     bool convertMeasures(const std::vector<Measure*>& measures, BrailleEngravingItemList* beis);
+    bool convertMeasuresSectionBySection(const std::vector<Measure*>& measures, BrailleEngravingItemList* beis);
     bool convertItem(EngravingItem* el, BrailleEngravingItemList* beis);
 
 private:
@@ -197,6 +199,7 @@ private:
     /* --------------------------------------------------------------- */
 
     void convertMeasureInto(Measure* measure, BrailleEngravingItemList* beis);
+    void brailleMeasureStaff(Measure* measure, int staffCount, BrailleEngravingItemList* out);
 
     void brailleMeasure(BrailleEngravingItemList* res, Measure* measure, int staffCount);
     bool brailleSingleItem(BrailleEngravingItemList* beiz, EngravingItem* el);

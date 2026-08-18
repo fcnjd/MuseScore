@@ -63,6 +63,8 @@ PreferencesPage {
             intervalDirection: preferencesModel.intervalDirection
             barsToShowOptions: preferencesModel.barsToShowOptions()
             barsToShow: preferencesModel.barsToShow
+            barAlignmentOptions: preferencesModel.barAlignmentOptions()
+            barAlignment: preferencesModel.barAlignment
 
             navigation.section: root.navigationSection
             navigation.order: root.navigationOrderStart + 2
@@ -79,6 +81,10 @@ PreferencesPage {
 
             onBarsToShowChangeRequested: function(value) {
                 preferencesModel.barsToShow = value;
+            }
+
+            onBarAlignmentChangeRequested: function(value) {
+                preferencesModel.barAlignment = value;
             }
 
             onFocusChanged: {

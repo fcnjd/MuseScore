@@ -84,4 +84,18 @@ BrailleBarsToShow BrailleConfigurationStub::barsToShow() const
 void BrailleConfigurationStub::setBarsToShow(const BrailleBarsToShow)
 {
 }
+
+muse::async::Notification BrailleConfigurationStub::barAlignmentChanged() const
+{
+    return {};
+}
+
+BrailleBarAlignment BrailleConfigurationStub::barAlignment() const
+{
+    return BrailleBarAlignment::BarOverBar;
+}
+
+void BrailleConfigurationStub::setBarAlignment(const BrailleBarAlignment)
+{
+}
 }

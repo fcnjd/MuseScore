@@ -90,6 +90,11 @@ void NotationBraille::init()
         doBraille(true);
     });
 
+    brailleConfiguration()->barAlignmentChanged().onNotify(this, [this]() {
+        current_group.clear();
+        doBraille(true);
+    });
+
     globalContext()->currentNotationChanged().onNotify(this, [this]() {
         if (notation()) {
             notation()->interaction()->selectionChanged().onNotify(this, [this]() {
@@ -198,7 +203,11 @@ void NotationBraille::doBraille(bool force)
                         current_group = { m };
                     } else {
                         current_group = currentMeasureGroup(m, barsToShow);
-                        lb.convertMeasures(current_group, brailleEngravingItemList());
+                        if (brailleConfiguration()->barAlignment() == BrailleBarAlignment::SectionBySection) {
+                            lb.convertMeasuresSectionBySection(current_group, brailleEngravingItemList());
+                        } else {
+                            lb.convertMeasures(current_group, brailleEngravingItemList());
+                        }
                     }
 
                     setBrailleInfo(brailleEngravingItemList()->brailleStr());

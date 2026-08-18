@@ -50,11 +50,16 @@ public:
     braille::BrailleBarsToShow barsToShow() const override;
     void setBarsToShow(const braille::BrailleBarsToShow barsToShow) override;
 
+    muse::async::Notification barAlignmentChanged() const override;
+    braille::BrailleBarAlignment barAlignment() const override;
+    void setBarAlignment(const braille::BrailleBarAlignment barAlignment) override;
+
 private:
     muse::async::Notification m_braillePanelEnabledChanged;
     muse::async::Notification m_brailleTableChanged;
     muse::async::Notification m_intervalDirectionChanged;
     muse::async::Notification m_barsToShowChanged;
+    muse::async::Notification m_barAlignmentChanged;
 };
 }
 

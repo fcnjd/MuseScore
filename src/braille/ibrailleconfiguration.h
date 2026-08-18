@@ -53,6 +53,10 @@ public:
     virtual muse::async::Notification barsToShowChanged() const = 0;
     virtual BrailleBarsToShow barsToShow() const = 0;
     virtual void setBarsToShow(const BrailleBarsToShow barsToShow) = 0;
+
+    virtual muse::async::Notification barAlignmentChanged() const = 0;
+    virtual BrailleBarAlignment barAlignment() const = 0;
+    virtual void setBarAlignment(const BrailleBarAlignment barAlignment) = 0;
 };
 }
 

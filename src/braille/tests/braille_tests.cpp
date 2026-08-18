@@ -292,3 +292,36 @@ TEST_F(Braille_Tests, convertMeasuresCarriesOctaveContextAcrossGroup) {
 
     delete score;
 }
+
+TEST_F(Braille_Tests, convertMeasuresSectionBySectionRunsBarsHorizontally) {
+    MasterScore* score = ScoreRW::readScore(BRAILLE_DIR + u"testPitches.mscx", false);
+    EXPECT_TRUE(score);
+    score->doLayout();
+
+    Measure* m1 = score->firstMeasure();
+    EXPECT_TRUE(m1);
+    Measure* m2 = m1 ? m1->nextMeasure() : nullptr;
+    EXPECT_TRUE(m2);
+
+    // Bar-over-bar (today's behavior): each measure on its own line.
+    BrailleEngravingItemList barOverBar;
+    Braille(score).convertMeasures({ m1, m2 }, &barOverBar);
+    EXPECT_TRUE(barOverBar.brailleStr().contains(QChar('\n')));
+
+    // Section-by-section: consecutive bars of the same (single) staff run
+    // together on one continuous line instead of one bar per newline. Both
+    // modes carry the same octave/clef/key context across the group (see
+    // convertMeasuresCarriesOctaveContextAcrossGroup), so with a single
+    // staff and no lyrics, the only difference from bar-over-bar here is
+    // the newline bar-over-bar inserts between the two measures.
+    BrailleEngravingItemList sectionBySection;
+    Braille(score).convertMeasuresSectionBySection({ m1, m2 }, &sectionBySection);
+
+    QString expected = barOverBar.brailleStr();
+    expected.remove(QChar('\n'));
+
+    EXPECT_FALSE(sectionBySection.brailleStr().contains(QChar('\n')));
+    EXPECT_EQ(sectionBySection.brailleStr(), expected);
+
+    delete score;
+}
