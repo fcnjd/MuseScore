@@ -907,7 +907,7 @@ bool Braille::write(QIODevice& device)
     return true;
 }
 
-bool Braille::convertMeasure(Measure* measure, BrailleEngravingItemList* beis)
+void Braille::convertMeasureInto(Measure* measure, BrailleEngravingItemList* beis)
 {
     int nrStaves = static_cast<int>(m_score->staves().size());
 
@@ -927,6 +927,31 @@ bool Braille::convertMeasure(Measure* measure, BrailleEngravingItemList* beis)
         if (!measureLyrics.isEmpty()) {
             beis->join(&measureLyrics, true, false);
         }
+    }
+}
+
+bool Braille::convertMeasure(Measure* measure, BrailleEngravingItemList* beis)
+{
+    convertMeasureInto(measure, beis);
+    return true;
+}
+
+bool Braille::convertMeasures(const std::vector<Measure*>& measures, BrailleEngravingItemList* beis)
+{
+    if (measures.empty()) {
+        return false;
+    }
+
+    // 3.2.1. Page 53. Music Braille Code 2015.
+    // The octave is always marked for the first note of a braille line.
+    // Here the whole displayed group of measures is treated as one line:
+    // reset the octave context once, then let it carry through every
+    // measure in the group, the same way Braille::write() only resets
+    // between printed lines rather than between every measure.
+    resetOctaves();
+
+    for (Measure* measure : measures) {
+        convertMeasureInto(measure, beis);
     }
 
     return true;

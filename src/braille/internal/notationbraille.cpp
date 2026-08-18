@@ -22,6 +22,8 @@
 
 #include "notationbraille.h"
 
+#include <algorithm>
+
 #include "translation.h"
 
 #include "engraving/dom/factory.h"
@@ -31,6 +33,7 @@
 #include "engraving/dom/select.h"
 #include "engraving/dom/slur.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/system.h"
 #include "engraving/dom/tie.h"
 
 #include "engraving/editing/noteinput.h"
@@ -80,6 +83,11 @@ void NotationBraille::init()
     brailleConfiguration()->intervalDirectionChanged().onNotify(this, [this]() {
         BrailleIntervalDirection direction = brailleConfiguration()->intervalDirection();
         setIntervalDirection(direction);
+    });
+
+    brailleConfiguration()->barsToShowChanged().onNotify(this, [this]() {
+        current_group.clear();
+        doBraille(true);
     });
 
     globalContext()->currentNotationChanged().onNotify(this, [this]() {
@@ -175,13 +183,25 @@ void NotationBraille::doBraille(bool force)
                     setBrailleInfo(brailleEngravingItemList()->brailleStr());
                 }
                 current_measure = nullptr;
+                current_group.clear();
             } else {
-                if (m != current_measure || force) {
+                current_measure = m;
+
+                bool inGroup = std::find(current_group.begin(), current_group.end(), m) != current_group.end();
+                if (!inGroup || force) {
                     brailleEngravingItemList()->clear();
                     Braille lb(score());
-                    lb.convertMeasure(m, brailleEngravingItemList());
+
+                    BrailleBarsToShow barsToShow = brailleConfiguration()->barsToShow();
+                    if (barsToShow == BrailleBarsToShow::One) {
+                        lb.convertMeasure(m, brailleEngravingItemList());
+                        current_group = { m };
+                    } else {
+                        current_group = currentMeasureGroup(m, barsToShow);
+                        lb.convertMeasures(current_group, brailleEngravingItemList());
+                    }
+
                     setBrailleInfo(brailleEngravingItemList()->brailleStr());
-                    current_measure = m;
                 }
                 current_bei = brailleEngravingItemList()->getItem(e);
                 if (current_bei != nullptr) {
@@ -189,6 +209,96 @@ void NotationBraille::doBraille(bool force)
                 }
             }
         }
+    }
+}
+
+std::vector<Measure*> NotationBraille::currentMeasureGroup(Measure* m, BrailleBarsToShow barsToShow) const
+{
+    std::vector<Measure*> result;
+    if (!m) {
+        return result;
+    }
+
+    if (barsToShow == BrailleBarsToShow::System) {
+        System* system = m->system();
+        if (!system) {
+            result.push_back(m);
+            return result;
+        }
+        for (MeasureBase* mb : system->measures()) {
+            if (mb->isMeasure()) {
+                result.push_back(toMeasure(mb));
+            }
+        }
+        return result;
+    }
+
+    int n = static_cast<int>(barsToShow);
+    if (n <= 1) {
+        result.push_back(m);
+        return result;
+    }
+
+    int idx = m->measureIndex();
+    int stepsBack = idx % n;
+
+    Measure* cur = m;
+    for (int i = 0; i < stepsBack && cur; ++i) {
+        MeasureBase* prevMb = cur->prev();
+        while (prevMb && !prevMb->isMeasure()) {
+            prevMb = prevMb->prev();
+        }
+        cur = prevMb ? toMeasure(prevMb) : nullptr;
+    }
+
+    for (int i = 0; i < n && cur; ++i) {
+        result.push_back(cur);
+        MeasureBase* nextMb = cur->next();
+        while (nextMb && !nextMb->isMeasure()) {
+            nextMb = nextMb->next();
+        }
+        cur = nextMb ? toMeasure(nextMb) : nullptr;
+    }
+
+    return result;
+}
+
+void NotationBraille::jumpToAdjacentGroup(bool forward)
+{
+    Measure* m = currentMeasure();
+    if (!m) {
+        return;
+    }
+
+    BrailleBarsToShow barsToShow = brailleConfiguration()->barsToShow();
+    std::vector<Measure*> group = (barsToShow == BrailleBarsToShow::One)
+                                   ? std::vector<Measure*> { m }
+                                   : currentMeasureGroup(m, barsToShow);
+    if (group.empty()) {
+        return;
+    }
+
+    Measure* boundary = forward ? group.back() : group.front();
+    MeasureBase* mb = forward ? boundary->next() : boundary->prev();
+    while (mb && !mb->isMeasure()) {
+        mb = forward ? mb->next() : mb->prev();
+    }
+    if (!mb) {
+        return;
+    }
+
+    Measure* seed = toMeasure(mb);
+    std::vector<Measure*> targetGroup = (barsToShow == BrailleBarsToShow::One)
+                                         ? std::vector<Measure*> { seed }
+                                         : currentMeasureGroup(seed, barsToShow);
+    Measure* target = targetGroup.empty() ? seed : targetGroup.front();
+
+    track_idx_t track = currentEngravingItem() ? currentEngravingItem()->track() : 0;
+    ChordRest* cr = target->firstChordRest(track);
+    if (cr) {
+        interaction()->select({ cr });
+    } else {
+        interaction()->select({ target });
     }
 }
 
@@ -456,6 +566,10 @@ void NotationBraille::setKeys(const QString& sequence)
         interaction()->select(SelectionTarget::LastItem);
     } else if (matchPattern(seq, "Ctrl+Home")) {
         interaction()->select(SelectionTarget::FirstItem);
+    } else if (seq == "PageDown") {
+        jumpToAdjacentGroup(true);
+    } else if (seq == "PageUp") {
+        jumpToAdjacentGroup(false);
     } else if (seq == "Delete") {
         if (currentEngravingItem()) {
             interaction()->deleteSelection();

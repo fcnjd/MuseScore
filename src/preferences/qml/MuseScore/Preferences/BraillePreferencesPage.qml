@@ -61,6 +61,8 @@ PreferencesPage {
             directions: preferencesModel.intervalDirections()
             brailleTable: preferencesModel.brailleTable
             intervalDirection: preferencesModel.intervalDirection
+            barsToShowOptions: preferencesModel.barsToShowOptions()
+            barsToShow: preferencesModel.barsToShow
 
             navigation.section: root.navigationSection
             navigation.order: root.navigationOrderStart + 2
@@ -73,6 +75,10 @@ PreferencesPage {
 
             onIntervalDirectionChangeRequested: function(direction) {
                 preferencesModel.intervalDirection = direction;
+            }
+
+            onBarsToShowChangeRequested: function(value) {
+                preferencesModel.barsToShow = value;
             }
 
             onFocusChanged: {

@@ -21,6 +21,8 @@
  */
 #pragma once
 
+#include <vector>
+
 #include <QIODevice>
 
 #include "engraving/types/types.h"
@@ -164,6 +166,7 @@ public:
     Braille(Score* s);
     bool write(QIODevice& device);
     bool convertMeasure(Measure* m, BrailleEngravingItemList* beis);
+    bool convertMeasures(const std::vector<Measure*>& measures, BrailleEngravingItemList* beis);
     bool convertItem(EngravingItem* el, BrailleEngravingItemList* beis);
 
 private:
@@ -192,6 +195,8 @@ private:
     BarLine* firstBarline(Measure* measure, track_idx_t track);
     BarLine* lastBarline(Measure* measure, track_idx_t track);
     /* --------------------------------------------------------------- */
+
+    void convertMeasureInto(Measure* measure, BrailleEngravingItemList* beis);
 
     void brailleMeasure(BrailleEngravingItemList* res, Measure* measure, int staffCount);
     bool brailleSingleItem(BrailleEngravingItemList* beiz, EngravingItem* el);

@@ -119,7 +119,11 @@ private:
 
     IntervalDirection currentIntervalDirection();
 
+    std::vector<Measure*> currentMeasureGroup(Measure* m, braille::BrailleBarsToShow barsToShow) const;
+    void jumpToAdjacentGroup(bool forward);
+
     Measure* current_measure = nullptr;
+    std::vector<Measure*> current_group;
     EngravingItem* current_engraving_item = nullptr;
     BrailleEngravingItem* current_bei = nullptr;
     BrailleEngravingItemList m_beil;

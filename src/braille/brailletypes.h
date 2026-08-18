@@ -37,6 +37,17 @@ enum class BrailleIntervalDirection
     Up,
     Down,
 };
+
+enum class BrailleBarsToShow
+{
+    System = 0,
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+};
 }
 
 #endif // MU_BRAILLE_BRAILLETYPES_H

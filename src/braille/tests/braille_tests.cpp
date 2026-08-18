@@ -28,6 +28,7 @@
 #include "engraving/tests/utils/scorecomp.h"
 
 #include "engraving/dom/masterscore.h"
+#include "engraving/dom/measure.h"
 #include "../internal/braille.h"
 
 using namespace mu::engraving;
@@ -236,4 +237,58 @@ TEST_F(Braille_Tests, hairpins) {
 }
 TEST_F(Braille_Tests, sectionBreak) {
     brailleSaveTest("testSectionBreak");
+}
+
+TEST_F(Braille_Tests, convertMeasureMatchesConvertMeasuresSingle) {
+    MasterScore* score = ScoreRW::readScore(BRAILLE_DIR + u"testPitches.mscx", false);
+    EXPECT_TRUE(score);
+    score->doLayout();
+
+    Measure* m1 = score->firstMeasure();
+    EXPECT_TRUE(m1);
+
+    BrailleEngravingItemList viaConvertMeasure;
+    Braille(score).convertMeasure(m1, &viaConvertMeasure);
+
+    BrailleEngravingItemList viaConvertMeasures;
+    Braille(score).convertMeasures({ m1 }, &viaConvertMeasures);
+
+    EXPECT_EQ(viaConvertMeasure.brailleStr(), viaConvertMeasures.brailleStr());
+
+    delete score;
+}
+
+TEST_F(Braille_Tests, convertMeasuresCarriesOctaveContextAcrossGroup) {
+    MasterScore* score = ScoreRW::readScore(BRAILLE_DIR + u"testPitches.mscx", false);
+    EXPECT_TRUE(score);
+    score->doLayout();
+
+    Measure* m1 = score->firstMeasure();
+    EXPECT_TRUE(m1);
+    Measure* m2 = m1 ? m1->nextMeasure() : nullptr;
+    EXPECT_TRUE(m2);
+
+    // Render m1 alone, to know the exact length of its contribution within the group.
+    BrailleEngravingItemList m1Solo;
+    Braille(score).convertMeasure(m1, &m1Solo);
+
+    // Render m2 alone: a fresh Braille instance has no previous-note context,
+    // so the first note of m2 always gets an explicit (unconditional) octave mark.
+    BrailleEngravingItemList m2Solo;
+    Braille(score).convertMeasure(m2, &m2Solo);
+
+    // Render m1+m2 as one group: octave/clef/key context must carry from m1 into
+    // m2, so m2's first note is marked based on the actual interval from m1's last
+    // note instead of unconditionally - i.e. m2's rendering differs from m2Solo.
+    BrailleEngravingItemList group;
+    Braille(score).convertMeasures({ m1, m2 }, &group);
+
+    QString groupStr = group.brailleStr();
+    QString m1InGroup = groupStr.left(m1Solo.brailleStr().length());
+    QString m2InGroup = groupStr.mid(m1Solo.brailleStr().length() + 1); // +1 skips the newline separator
+
+    EXPECT_EQ(m1InGroup, m1Solo.brailleStr());
+    EXPECT_NE(m2InGroup, m2Solo.brailleStr());
+
+    delete score;
 }

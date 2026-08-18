@@ -40,6 +40,10 @@ public:
     QString brailleTable() const override;
     void setBrailleTable(const QString& table) override;
     QStringList brailleTableList() const override;
+
+    muse::async::Notification barsToShowChanged() const override;
+    BrailleBarsToShow barsToShow() const override;
+    void setBarsToShow(const BrailleBarsToShow barsToShow) override;
 };
 }
 

@@ -70,4 +70,18 @@ QStringList BrailleConfigurationStub::brailleTableList() const
 {
     return {};
 }
+
+muse::async::Notification BrailleConfigurationStub::barsToShowChanged() const
+{
+    return {};
+}
+
+BrailleBarsToShow BrailleConfigurationStub::barsToShow() const
+{
+    return BrailleBarsToShow::One;
+}
+
+void BrailleConfigurationStub::setBarsToShow(const BrailleBarsToShow)
+{
+}
 }
