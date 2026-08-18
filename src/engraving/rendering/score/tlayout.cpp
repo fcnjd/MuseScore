@@ -27,10 +27,12 @@
 #include "global/types/number.h"
 #include "draw/fontmetrics.h"
 
+#include "iengravingconfiguration.h" // IWYU pragma: keep
+#include "iengravingfont.h"
+
 #include "infrastructure/rtti.h"
 #include "infrastructure/ld_access.h"
 
-#include "iengravingfont.h"
 #include "types/typesconv.h"
 #include "types/symnames.h"
 #include "dom/score.h"
@@ -90,6 +92,7 @@
 #include "dom/lyrics.h"
 
 #include "dom/marker.h"
+#include "dom/measure.h"
 #include "dom/measurebase.h"
 #include "dom/measurenumber.h"
 #include "dom/measurenumberbase.h"
@@ -931,7 +934,7 @@ void TLayout::layoutChordBracket(const ChordBracket* item, Arpeggio::LayoutData*
     ldata->setMag(item->staff() ? item->staff()->staffMag(item->tick()) : item->mag());
     ldata->magS = conf.magS(ldata->mag());
 
-    ldata->setShape(Shape(RectF(0.0, ldata->top, item->absoluteFromSpatium(item->hookLength()), ldata->bottom), item));
+    ldata->setShape(Shape(RectF(0.0, ldata->top, item->absoluteFromSpatium(item->hookLength()), ldata->bottom).normalized(), item));
 
     const Note* upnote = item->chord()->upNote();
     ldata->setPosY(upnote->y() + upnote->ldata()->bbox().top());
@@ -2935,16 +2938,16 @@ void TLayout::layoutGradualTempoChange(GradualTempoChange* item, LayoutContext& 
     layoutLine(item, ctx);
 }
 
-void TLayout::layoutGuitarBend(GuitarBend* item, LayoutContext& ctx)
+void TLayout::layoutGuitarBend(GuitarBend* item, LayoutContext& ctx, System* system)
 {
     LAYOUT_CALL_ITEM(item);
     item->computeBendAmount();
 
-    GuitarBendLayout::updateSegmentsAndLayout(item, ctx);
+    GuitarBendLayout::updateSegmentsAndLayout(item, ctx, system);
 
     item->updateHoldLine();
     if (item->holdLine()) {
-        GuitarBendLayout::updateSegmentsAndLayout(item->holdLine(), ctx);
+        GuitarBendLayout::updateSegmentsAndLayout(item->holdLine(), ctx, system);
     }
 }
 
