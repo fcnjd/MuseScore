@@ -381,7 +381,6 @@ public:
     static SpannerSegment* layoutSystem(LyricsLine* line, System* system, LayoutContext& ctx);
     static SpannerSegment* layoutSystem(Volta* line, System* system, LayoutContext& ctx);
     static SpannerSegment* layoutSystem(Slur* line, System* system, LayoutContext& ctx);
-    static void layoutSystemsDone(Spanner* item);
 
 private:
 
@@ -391,8 +390,7 @@ private:
 
     static SpannerSegment* layoutSystemSLine(SLine* line, System* system, LayoutContext& ctx);
     static double voltaMidEndSegmentStartX(Volta* volta, System* system, LayoutContext& ctx);
-    static SpannerSegment* getNextLayoutSystemSegment(Spanner* spanner, System* system,
-                                                      std::function<SpannerSegment* (System* parent)> createSegment);
+    static SpannerSegment* getNextLayoutSystemSegment(Spanner* spanner, System* system, std::function<SpannerSegment* ()> createSegment);
 
     static void manageHairpinSnapping(HairpinSegment* item, LayoutContext& ctx);
 
