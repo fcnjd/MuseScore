@@ -488,6 +488,8 @@ void NotationBraille::setKeys(const QString& sequence)
         brailleInput()->setTupletIndicator(true);
         brailleInput()->resetBuffer();
     } else if (seq == "Space") {
+        dispatcher()->dispatch("command://playback/play-toggle");
+    } else if (seq == "Escape") {
         brailleInput()->reset();
     } else if (isBrailleInputMode() && !sequence.isEmpty()) {
         QString pattern = parseBrailleKeyInput(sequence);
