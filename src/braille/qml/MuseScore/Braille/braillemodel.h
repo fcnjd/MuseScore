@@ -45,8 +45,9 @@ class BrailleModel : public QObject, public muse::Contextable, public muse::asyn
     Q_PROPERTY(int currentItemPositionEnd READ currentItemPositionEnd NOTIFY currentItemChanged)
     Q_PROPERTY(QString keys READ keys WRITE setKeys NOTIFY keysFired)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY braillePanelEnabledChanged)
-    Q_PROPERTY(int mode READ mode WRITE setMode NOTIFY brailleModeChanged)
-    Q_PROPERTY(QString cursorColor READ cursorColor NOTIFY brailleModeChanged)
+    Q_PROPERTY(int inputMethod READ inputMethod NOTIFY inputMethodChanged)
+    Q_PROPERTY(bool noteInputActive READ noteInputActive NOTIFY cursorColorChanged)
+    Q_PROPERTY(QString cursorColor READ cursorColor NOTIFY cursorColorChanged)
 
     QML_ELEMENT
 
@@ -74,8 +75,9 @@ public:
     bool enabled() const;
     void setEnabled(bool e);
 
-    int mode() const;
-    void setMode(int mode);
+    int inputMethod() const;
+    bool noteInputActive() const;
+    Q_INVOKABLE void toggleInputMethod();
     bool isNavigationMode();
     bool isBrailleInputMode();
 
@@ -87,7 +89,7 @@ signals:
     void currentItemChanged();
     void keysFired();
     void braillePanelEnabledChanged();
-    void brailleModeChanged();
+    void inputMethodChanged();
     void cursorColorChanged();
 
 private:
@@ -101,6 +103,7 @@ private:
     void listenCurrentItemChanges();
     void listenKeys();
     void listenBraillePanelEnabledChanges();
-    void listenBrailleModeChanges();
+    void listenInputMethodChanges();
+    void listenCursorColorChanges();
 };
 }

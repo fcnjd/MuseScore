@@ -24,11 +24,10 @@
 #define MU_BRAILLE_BRAILLETYPES_H
 
 namespace mu::braille {
-enum class BrailleMode
+enum class BrailleInputMethod
 {
-    Undefined = 0,
-    Navigation,
-    BrailleInput,
+    SixKey = 0,
+    MuseScoreShortcuts,
 };
 
 enum class BrailleIntervalDirection

@@ -43,6 +43,7 @@ StyledFlickable {
 
     Component.onCompleted: {
         brailleModel.load()
+        brailleTextArea.syncText()
     }
 
     BrailleModel {
@@ -50,15 +51,8 @@ StyledFlickable {
         property int keys_pressed: 0
         property string keys_buffer: ""
 
-        onCurrentItemChanged: {
-            if(brailleModel.currentItemPositionStart.valueOf() != -1 &&
-                    brailleModel.currentItemPositionEnd.valueOf() != -1) {
-                    //brailleTextArea.select(brailleModel.currentItemPositionStart.valueOf(), brailleModel.currentItemPositionEnd.valueOf());
-                if(brailleTextArea.focus) {
-                    brailleTextArea.cursorPosition = brailleModel.currentItemPositionEnd.valueOf();
-                }
-            }
-        }
+        onBrailleInfoChanged: brailleTextArea.syncText()
+        onCurrentItemChanged: brailleTextArea.syncSelection()
     }
 
     TextArea.flickable: TextArea {
@@ -67,8 +61,48 @@ StyledFlickable {
         font {
             pixelSize: ui.theme.bodyFont.pixelSize
         }
-        text: brailleModel.brailleInfo
+        readOnly: true
+        selectByKeyboard: true
         wrapMode: Text.AlignLeft
+
+		property bool synchronizing: false
+		property bool navigating: false
+		property var caretNavigationKeys: new Set()
+
+		onActiveFocusChanged: {
+			if (!activeFocus) {
+				caretNavigationKeys.clear();
+				brailleModel.keys_pressed = 0;
+				brailleModel.keys_buffer = "";
+			}
+		}
+
+		function syncText() {
+			synchronizing = true;
+			text = brailleModel.brailleInfo;
+			synchronizing = false;
+			syncSelection();
+		}
+
+		function syncSelection() {
+			if (navigating || !focus || brailleModel.currentItemPositionStart < 0
+					|| brailleModel.currentItemPositionEnd < 0) {
+				return;
+			}
+			synchronizing = true;
+			cursorPosition = Math.min(length, brailleModel.currentItemPositionEnd);
+			synchronizing = false;
+		}
+
+		function isCaretNavigation(event) {
+			return (event.key === Qt.Key_Left || event.key === Qt.Key_Right)
+					&& event.modifiers === Qt.NoModifier;
+		}
+
+        function isInputMethodShortcut(event) {
+            return event.key === Qt.Key_B
+                   && event.modifiers === (Qt.ControlModifier | Qt.ShiftModifier)
+        }
 
         property var keyMap: new Map([
             [Qt.Key_0, "0"],
@@ -167,11 +201,19 @@ StyledFlickable {
             order: 1
 
             accessible.role: MUAccessible.EditableText
-            accessible.name: brailleModel.mode === 2
-                             //: Braille input with 6 keyboard keys (F,D,S & J,K,L) to represent the 6 dots in a braille cell.
-                             ? qsTrc("braille/view", "Six-key input mode")
-                             //: Braille navigation.
-                             : qsTrc("braille/view", "Navigation mode")
+            accessible.name: brailleModel.inputMethod === 0
+                             ? (brailleModel.noteInputActive
+                                //: Braille input with 6 keyboard keys (F,D,S & J,K,L) to represent the 6 dots in a braille cell.
+                                ? qsTrc("braille/view", "Six-key input mode")
+                                : qsTrc("braille/view", "Navigation mode, six-key selected"))
+                             : (brailleModel.noteInputActive
+                                ? qsTrc("braille/view", "MuseScore shortcuts mode")
+                                : qsTrc("braille/view", "MuseScore shortcuts, note input off"))
+            accessible.description: brailleModel.inputMethod === 0
+                                    //: Short keyboard help for six-key input, available through the screen reader's control description command.
+                                    ? qsTrc("braille/view", "Left and Right navigate Braille cells. Control+Shift+B switches input methods. N toggles note input. Tab or F6 moves focus.")
+                                    //: Short keyboard help for MuseScore shortcuts input, available through the screen reader's control description command.
+                                    : qsTrc("braille/view", "Left and Right navigate Braille cells. Control+Shift+B switches input methods. MuseScore shortcuts apply. Tab or F6 moves focus.")
             accessible.visualItem: brailleTextArea
             accessible.text: brailleTextArea.text
             accessible.selectedText: brailleTextArea.selectedText
@@ -182,10 +224,7 @@ StyledFlickable {
             onActiveChanged: {
                 if (fakeNavCtrl.active) {
                     brailleTextArea.forceActiveFocus();
-                    if(brailleModel.currentItemPositionStart.valueOf() != -1 &&
-                        brailleModel.currentItemPositionEnd.valueOf() != -1) {
-                            brailleTextArea.cursorPosition = brailleModel.currentItemPositionEnd.valueOf();
-                    }
+                    brailleTextArea.syncSelection();
                 } else {
                     brailleTextArea.focus = false
                 }
@@ -198,7 +237,12 @@ StyledFlickable {
         }
 
         onCursorPositionChanged: {
-            brailleModel.cursorPosition = brailleTextArea.cursorPosition;
+			if (!synchronizing && !navigating && activeFocus) {
+				// Selection notifications must not snap a user-driven caret to the item's end.
+				navigating = true;
+				brailleModel.cursorPosition = cursorPosition;
+				navigating = false;
+			}
         }
 
         Component.onCompleted: {
@@ -210,23 +254,44 @@ StyledFlickable {
         }
 
         Keys.onShortcutOverride: function(event) {
-
-            if (keyMap.get(event.key) === "") {
-                // Not interested in this key. Allow it to undergo normal
-                // shortcut processing (i.e. trigger an action, if it's been
-                // assigned one in Preferences that's valid in this context).
+			if (brailleTextArea.isCaretNavigation(event)) {
+				// Plain arrows always navigate Braille cells, regardless of input method.
+				event.accepted = true;
+				return;
+			}
+            if (brailleTextArea.isInputMethodShortcut(event)) {
+                // This panel-specific shortcut takes precedence over Insert B.
+                event.accepted = true;
                 return;
             }
 
-            // Intercept key for use in Keys.onPressed (below). This prevents
-            // it from triggering actions it's assigned to in Preferences.
-            // Note: users can reassign shortcuts to use keys that aren't
-            // blocked. Conclusion: we can block keys here but not actions.
+            if (brailleModel.inputMethod !== 0 || !keyMap.has(event.key)) {
+                // Let MuseScore resolve the user's current shortcut assignments.
+                event.accepted = false;
+                return;
+            }
+
+            // Six-key input owns these keys while this method is selected.
             event.accepted = true;
-            return;
         }
 
         Keys.onPressed: function(event) {
+			if (brailleTextArea.isCaretNavigation(event)) {
+				caretNavigationKeys.add(event.key);
+				// Let TextArea move its caret; these keys are not six-key chord input.
+				event.accepted = false;
+				return;
+			}
+            if (brailleTextArea.isInputMethodShortcut(event)) {
+                if (!event.isAutoRepeat) {
+                    brailleModel.toggleInputMethod();
+                    brailleModel.keys_pressed = 0;
+                    brailleModel.keys_buffer = "";
+                }
+                event.accepted = true;
+                return;
+            }
+
             if (event.key === Qt.Key_Tab
                     || event.key === Qt.Key_Backtab
                     || event.key === Qt.Key_F6
@@ -239,6 +304,12 @@ StyledFlickable {
                     return;
                 }
             }
+
+			if (brailleModel.inputMethod !== 0) {
+				// Unhandled keys remain available to MuseScore's shortcuts.
+				event.accepted = false;
+				return;
+			}
 
             // Note: Subsequent keys must be accepted in Keys.onShortcutOverride (above).
 
@@ -285,6 +356,22 @@ StyledFlickable {
         }
 
         Keys.onReleased: function(event) {
+			if (caretNavigationKeys.has(event.key)) {
+				if (!event.isAutoRepeat) {
+					caretNavigationKeys.delete(event.key);
+				}
+				event.accepted = true;
+				return;
+			}
+            if (brailleTextArea.isInputMethodShortcut(event) || brailleModel.inputMethod !== 0) {
+                event.accepted = false;
+                return;
+            }
+
+            if (brailleModel.keys_pressed === 0) {
+                return;
+            }
+
             if (event.key !== Qt.Key_Shift
                 && event.key !== Qt.Key_Alt
                 && event.key !== Qt.Key_Control

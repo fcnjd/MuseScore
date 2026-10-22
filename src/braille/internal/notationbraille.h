@@ -79,7 +79,7 @@ public:
     muse::ValCh<std::string> keys() const override;
     muse::ValCh<bool> enabled() const override;
     muse::ValCh<braille::BrailleIntervalDirection> intervalDirection() const override;
-    muse::ValCh<int> mode() const override;
+    muse::ValCh<int> inputMethod() const override;
     muse::ValCh<std::string> cursorColor() const override;
 
     void setEnabled(const bool enabled) override;
@@ -89,8 +89,8 @@ public:
     void setCurrentItemPosition(const int, const int) override;
     void setKeys(const QString&) override;
 
-    void setMode(const braille::BrailleMode) override;
-    void toggleMode() override;
+    void setInputMethod(const braille::BrailleInputMethod) override;
+    void toggleInputMethod() override;
     bool isNavigationMode() override;
     bool isBrailleInputMode() override;
 
@@ -116,6 +116,9 @@ private:
 
     void updateTableForLyricsFromPreferences();
     muse::io::path_t tablesDefaultDirPath() const;
+    void toggleNoteInput();
+    void updateNoteInputState();
+    void updateCursorColor();
 
     IntervalDirection currentIntervalDirection();
 
@@ -124,6 +127,7 @@ private:
     BrailleEngravingItem* current_bei = nullptr;
     BrailleEngravingItemList m_beil;
     BrailleInputState m_braille_input;
+    bool m_noteInputActive = false;
 
     muse::ValCh<std::string> m_brailleInfo;
     muse::ValCh<int> m_cursorPosition;
@@ -131,7 +135,7 @@ private:
     muse::ValCh<int> m_currentItemPositionEnd;
     muse::ValCh<std::string> m_keys;
     muse::ValCh<bool> m_enabled;
-    muse::ValCh<int> m_mode;
+    muse::ValCh<int> m_inputMethod;
     muse::ValCh<braille::BrailleIntervalDirection> m_intervalDirection;
     muse::ValCh<std::string> m_cursorColor;
 

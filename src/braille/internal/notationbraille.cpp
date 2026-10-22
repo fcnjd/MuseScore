@@ -57,7 +57,8 @@ void NotationBraille::init()
     setEnabled(brailleConfiguration()->braillePanelEnabled());
     setCurrentItemPosition(-1, -1);
 
-    setMode(BrailleMode::Navigation);
+    setInputMethod(BrailleInputMethod::SixKey);
+    updateCursorColor();
 
     path_t tablesdir = tablesDefaultDirPath();
     setTablesDir(tablesdir.toStdString().c_str());
@@ -94,16 +95,14 @@ void NotationBraille::init()
             }, Mode::SetReplace);
 
             notation()->interaction()->noteInput()->stateChanged().onNotify(this, [this]() {
-                if (interaction()->noteInput()->isNoteInputMode()) {
-                    if (isNavigationMode()) {
-                        setMode(BrailleMode::BrailleInput);
-                    }
-                } else {
-                    if (isBrailleInputMode()) {
-                        setMode(BrailleMode::Navigation);
-                    }
-                }
+                updateNoteInputState();
             }, Mode::SetReplace);
+
+            m_noteInputActive = interaction()->noteInput()->isNoteInputMode();
+            if (m_noteInputActive && m_inputMethod.val == static_cast<int>(BrailleInputMethod::SixKey)) {
+                brailleInput()->initialize();
+            }
+            updateCursorColor();
 
             notation()->interaction()->noteInput()->noteAdded().onNotify(this, [this]() {
                 if (currentEngravingItem() && currentEngravingItem()->isNote()) {
@@ -237,9 +236,9 @@ ValCh<BrailleIntervalDirection> NotationBraille::intervalDirection() const
     return m_intervalDirection;
 }
 
-ValCh<int> NotationBraille::mode() const
+ValCh<int> NotationBraille::inputMethod() const
 {
-    return m_mode;
+    return m_inputMethod;
 }
 
 ValCh<std::string> NotationBraille::cursorColor() const
@@ -291,15 +290,13 @@ void NotationBraille::setBrailleInfo(const QString& info)
 
 void NotationBraille::setCursorPosition(const int pos)
 {
-    if (!isNavigationMode()) {
+	if (!interaction() || pos < 0 || pos > getBrailleStr().size()) {
         return;
     }
 
-    if (m_cursorPosition.val == pos || pos == 0) {
-        return;
-    }
-
-    m_cursorPosition.set(pos);
+	if (m_cursorPosition.val != pos) {
+		m_cursorPosition.set(pos);
+	}
 
     current_bei = brailleEngravingItemList()->getItem(pos);
     if (current_bei != NULL && current_bei->el() != NULL
@@ -464,7 +461,7 @@ void NotationBraille::setKeys(const QString& sequence)
             }
         }
     } else if (seq == "N") {
-        toggleMode();
+        toggleNoteInput();
         brailleInput()->initialize();
     } else if (seq == "Plus") {
         if (isBrailleInputMode()) {
@@ -856,33 +853,36 @@ bool NotationBraille::setVoice(bool new_voice)
     }
 }
 
-void NotationBraille::setMode(const BrailleMode mode)
+void NotationBraille::setInputMethod(const BrailleInputMethod method)
 {
-    switch (mode) {
-    case BrailleMode::Undefined:
-    case BrailleMode::Navigation:
-        setCursorColor("black");
-        break;
-    case BrailleMode::BrailleInput:
-        setCursorColor("green");
-        break;
+    if (m_inputMethod.val == static_cast<int>(method)) {
+        return;
     }
 
-    m_mode.set((int)mode);
+    if (method == BrailleInputMethod::SixKey && !isNavigationMode()) {
+        brailleInput()->initialize();
+    } else {
+        brailleInput()->reset();
+    }
+    m_inputMethod.set(static_cast<int>(method));
+    updateCursorColor();
 }
 
-void NotationBraille::toggleMode()
+void NotationBraille::toggleInputMethod()
 {
-    switch ((BrailleMode)mode().val) {
-    case BrailleMode::Undefined:
-    case BrailleMode::Navigation:
-        setMode(BrailleMode::BrailleInput);
-        break;
-    case BrailleMode::BrailleInput:
-        setMode(BrailleMode::Navigation);
-        break;
-    }
+    const BrailleInputMethod method = m_inputMethod.val == static_cast<int>(BrailleInputMethod::SixKey)
+                                      ? BrailleInputMethod::MuseScoreShortcuts : BrailleInputMethod::SixKey;
+    setInputMethod(method);
 
+    const QString stateTitle = method == BrailleInputMethod::SixKey
+                               //: Braille input with 6 keyboard keys (F,D,S & J,K,L) to represent the 6 dots in a braille cell.
+                               ? muse::qtrc("braille/notation", "Six-key input mode")
+                               : muse::qtrc("braille/notation", "MuseScore shortcuts mode");
+    accessibilityController()->announce(stateTitle);
+}
+
+void NotationBraille::toggleNoteInput()
+{
     dispatcher()->dispatch("command://notation/toggle-note-input");
 
     const QString stateTitle = interaction()->noteInput()->isNoteInputMode()
@@ -896,16 +896,34 @@ void NotationBraille::toggleMode()
 
 bool NotationBraille::isNavigationMode()
 {
-    return mode().val == (int)BrailleMode::Navigation;
+    return !interaction() || !interaction()->noteInput()->isNoteInputMode();
 }
 
 bool NotationBraille::isBrailleInputMode()
 {
-    return mode().val == (int)BrailleMode::BrailleInput;
+    return m_inputMethod.val == static_cast<int>(BrailleInputMethod::SixKey) && !isNavigationMode();
+}
+
+void NotationBraille::updateNoteInputState()
+{
+    const bool active = !isNavigationMode();
+    if (active && !m_noteInputActive && m_inputMethod.val == static_cast<int>(BrailleInputMethod::SixKey)) {
+        brailleInput()->initialize();
+    }
+    m_noteInputActive = active;
+    updateCursorColor();
+}
+
+void NotationBraille::updateCursorColor()
+{
+    setCursorColor(isNavigationMode() ? "black" : "green");
 }
 
 void NotationBraille::setCursorColor(const QString color)
 {
+    if (m_cursorColor.val == color.toStdString()) {
+        return;
+    }
     m_cursorColor.set(color.toStdString());
 }
 
@@ -920,19 +938,29 @@ void NotationBraille::setCurrentEngravingItem(EngravingItem* e, bool select)
         return;
     }
 
-    bool play = current_engraving_item != e;
-    current_engraving_item = e;
-    if (isNavigationMode()) {
-        if (select) {
-            if (play) {
-                playbackController()->playElements({ e });
-            }
-            if (e->isChord()) {
-                e = toChord(e)->upNote(); // select a note rather than the chord
-            }
-            interaction()->select({ e });
-        }
-    }
+	EngravingItem* playbackItem = e;
+	if (e->isChord()) {
+		e = toChord(e)->upNote(); // Use the same identity as the score selection.
+	}
+	const bool changed = current_engraving_item != e;
+	current_engraving_item = e;
+	if (!select || !changed) {
+		return;
+	}
+
+	if (!isNavigationMode()) {
+		ChordRest* chordRest = e->isNote() ? toNote(e)->chord() : (e->isChordRest() ? toChordRest(e) : nullptr);
+		if (chordRest) {
+			// Selection alone does not move the insertion position during note input.
+			score()->inputState().moveInputPos(chordRest);
+			interaction()->noteInput()->setCurrentTrack(chordRest->track());
+			if (e->isNote()) {
+				brailleInput()->setOctave(toNote(e)->octave());
+			}
+		}
+	}
+	playbackController()->playElements({ playbackItem });
+	interaction()->select({ e });
 }
 
 IntervalDirection NotationBraille::currentIntervalDirection()

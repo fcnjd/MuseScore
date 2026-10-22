@@ -28,14 +28,21 @@ set(MODULE_TEST_SRC
 
     ${CMAKE_CURRENT_LIST_DIR}/environment.cpp
     ${CMAKE_CURRENT_LIST_DIR}/braille_tests.cpp
+	${CMAKE_CURRENT_LIST_DIR}/notationbraille_tests.cpp
 )
 
 set(MODULE_TEST_LINK
     braille
     engraving
+	notation
     muse::accessibility
     )
 
 set(MODULE_TEST_DATA_ROOT ${CMAKE_CURRENT_LIST_DIR})
+
+set(MODULE_TEST_INCLUDE
+	${PROJECT_SOURCE_DIR}/src/braille
+	${PROJECT_SOURCE_DIR}/src/notation
+)
 
 include(SetupGTest)

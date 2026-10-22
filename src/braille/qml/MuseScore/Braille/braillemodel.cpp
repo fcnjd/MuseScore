@@ -61,10 +61,6 @@ void BrailleModel::setCursorPosition(int pos)
         return;
     }
 
-    if (notationBraille()->cursorPosition().val == pos) {
-        return;
-    }
-
     notationBraille()->setCursorPosition(pos);
 }
 
@@ -93,24 +89,23 @@ void BrailleModel::setEnabled(bool e)
     emit braillePanelEnabledChanged();
 }
 
-int BrailleModel::mode() const
+int BrailleModel::inputMethod() const
 {
-    return notationBraille()->mode().val;
+    return notationBraille() ? notationBraille()->inputMethod().val : 0;
 }
 
-void BrailleModel::setMode(int m)
+bool BrailleModel::noteInputActive() const
+{
+    return notationBraille() && !notationBraille()->isNavigationMode();
+}
+
+void BrailleModel::toggleInputMethod()
 {
     if (!notationBraille()) {
         return;
     }
 
-    if (notationBraille()->mode().val == m) {
-        return;
-    }
-
-    notationBraille()->setMode(static_cast<BrailleMode>(m));
-
-    emit brailleModeChanged();
+    notationBraille()->toggleInputMethod();
 }
 
 bool BrailleModel::isNavigationMode()
@@ -139,10 +134,6 @@ void BrailleModel::load()
 {
     TRACEFUNC;
 
-    if (notationBraille()) {
-        notationBraille()->setMode(BrailleMode::Navigation);
-    }
-
     onCurrentNotationChanged();
     context()->currentNotationChanged().onNotify(this, [this]() {
         onCurrentNotationChanged();
@@ -159,7 +150,8 @@ void BrailleModel::onCurrentNotationChanged()
     listenCurrentItemChanges();
     listenKeys();
     listenBraillePanelEnabledChanges();
-    listenBrailleModeChanges();
+    listenInputMethodChanges();
+    listenCursorColorChanges();
     listenCursorPositionChanges();
 }
 
@@ -219,13 +211,24 @@ void BrailleModel::listenBraillePanelEnabledChanges()
     }, Mode::SetReplace);
 }
 
-void BrailleModel::listenBrailleModeChanges()
+void BrailleModel::listenInputMethodChanges()
 {
     if (!notationBraille()) {
         return;
     }
-    notationBraille()->mode().ch.onReceive(this, [this](const int) {
-        emit brailleModeChanged();
+    notationBraille()->inputMethod().ch.onReceive(this, [this](const int) {
+        emit inputMethodChanged();
+    }, Mode::SetReplace);
+}
+
+void BrailleModel::listenCursorColorChanges()
+{
+    if (!notationBraille()) {
+        return;
+    }
+
+    notationBraille()->cursorColor().ch.onReceive(this, [this](const std::string&) {
+        emit cursorColorChanged();
     }, Mode::SetReplace);
 }
 
